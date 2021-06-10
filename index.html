@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Keyframes</title>
+	<style>
+		#canvas {
+			display: block;
+			border: 1px solid black;
+			width: 720px;
+			height: 480px;
+		}
+
+		textarea {
+			width: 200px;
+			height: 40px;
+			resize: none;
+			overflow: hidden;
+		}
+
+		button {
+			display: block;
+		}
+	</style>
+</head>
+<body>
+	<textarea id="input" placeholder="Import Keyframes (paste here)"></textarea>
+	<textarea id="output" placeholder="Any output will be here"></textarea>
+	<button onclick="plot(JSON.parse(input.value))">Plot translation on canvas</button>
+	<button onclick="genShake()">Generate Shake</button>
+
+	<canvas id="canvas"></canvas>
+</body>
+<script>
+const WIDTH = 1920;
+const HEIGHT = 1080;
+
+canvas.width = WIDTH;
+canvas.height = HEIGHT;
+
+var c = canvas.getContext("2d");
+c.lineWidth = 4;
+
+function decodeValue(value) {
+	var obj = [];
+
+	var frames = value.split(";");
+	for (var i = 0; i < frames.length; i++) {
+		var sides = frames[i].split("=");
+		var values = sides[1].split(" ");
+
+		for (var v = 0; v < values.length; v++) {
+			values[v] = eval(values[v]);
+		}
+		
+		obj.push({
+			ms: eval(sides[0]),
+			values: values
+		});
+	}
+
+	return obj;
+}
+
+function encodeValue(object) {
+	var value = "";
+	for (var f = 0; f < object.length; f++) {
+		value += object[f].ms + "=";
+		value += object[f].values.join(" ");
+
+		if (f <= object.length - 2) {
+			value += ";"
+		}
+	}
+
+	return value;
+}
+
+function genShakeRand(limit) {
+	return Math.floor(Math.random() * limit) - limit / 2;
+}
+
+function genShake() {
+	var ms = prompt("Length? (in ms)");
+	var limit = prompt("Max shake value (violence)? (0-100)");
+	var keyframes = JSON.parse(input.value);
+	
+	var value = decodeValue(keyframes[0].value);
+	for (var i = 0; i < ms; i++) {
+		value.push(JSON.parse(JSON.stringify(value[0])));
+		var values = value[value.length - 1].values;
+		value[value.length - 1].ms = i * 2;
+		values[0] += genShakeRand(limit);
+		values[1] += genShakeRand(limit);
+	}
+
+	keyframes[0].value = encodeValue(value);
+	output.value = JSON.stringify(keyframes);
+}
+
+function plot(data) {
+	c.clearRect(0, 0, WIDTH, HEIGHT);
+	var rectangle = {};
+	
+	for (var p = 0; p < data.length; p++) {
+		var values = decodeValue(data[p].value);
+
+		for (var f = 0; f < values.length; f++) {
+			var r = values[f].ms;
+			if (rectangle[r] == undefined) {
+				rectangle[r] = {
+					x: 0,
+					y: 0,
+					width: 0,
+					height: 0,
+					rotation: 0
+				};
+			}
+
+			var frame = values[f].values;
+			switch (data[p].name) {
+			case "rect":
+				rectangle[r].x = frame[0];
+				rectangle[r].y = frame[1];
+				rectangle[r].width = frame[2];
+				rectangle[r].height = frame[3];
+				break;
+			case "rotation":
+				rectangle[r].rotation = frame[0];
+			}
+		}	
+	}
+	
+	var rectangles = Object.keys(rectangle);
+	for (var r = 0; r < rectangles.length; r++) {
+		var currRect = rectangle[rectangles[r]];
+		var center = [
+			currRect.x + (currRect.width / 2),
+			currRect.y + (currRect.height / 2)
+		];
+	
+		c.save();
+		
+		c.translate(center[0], center[1]);
+		c.rotate(currRect.rotation * Math.PI / 180);
+		c.translate(-1 * center[0], -1 * center[1]);
+	
+		c.strokeRect(
+			currRect.x,
+			currRect.y,
+			currRect.width,
+			currRect.height
+		);
+	
+		c.fillRect(center[0] - 5, center[1] - 5, 10, 10);
+		
+		c.restore();
+	}
+}
+</script>
+<html>
